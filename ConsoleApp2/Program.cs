@@ -1,4 +1,8 @@
-﻿public interface IOperation
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public interface IOperation
 {
     string Operator { get; }
     double Calculate(double left, double right);
@@ -60,10 +64,11 @@ public class LogOperation : BaseOperation
 {
     public override string Operator => "log";
     public override double Calculate(double left, double right) => Math.Log(right, left);
+}
 
-    public class OperationFactory
-    {
-        private readonly Dictionary<string, Func<IOperation>> _operations = new Dictionary<string, Func<IOperation>>()
+public class OperationFactory
+{
+    private readonly Dictionary<string, Func<IOperation>> _operations = new Dictionary<string, Func<IOperation>>()
     {
         { "+", () => new AddOperation() },
         { "-", () => new SubtractOperation() },
@@ -75,57 +80,74 @@ public class LogOperation : BaseOperation
         { "^", () => new PowerOperation() }
     };
 
-        public IOperation GetOperation(string op) => _operations.TryGetValue(op, out var operation) ? operation() : null;
+    public IOperation GetOperation(string op) => _operations.TryGetValue(op, out var operation) ? operation() : null;
+}
+
+public class Calculator
+{
+    private readonly OperationFactory _operationFactory;
+
+    public Calculator(OperationFactory operationFactory)
+    {
+        _operationFactory = operationFactory;
     }
 
-    public class Calculator
+    public double Calculate(string expression)
     {
-        private readonly OperationFactory _operationFactory;
+        string[] parts = expression.Split(' ');
+        if (parts.Length != 3) throw new ArgumentException("Неверный формат");
 
-        public Calculator(OperationFactory operationFactory)
-        {
-            _operationFactory = operationFactory;
-        }
+        if (!double.TryParse(parts[0], out double left) || !double.TryParse(parts[2], out double right))
+            throw new ArgumentException("Неверные символы");
 
-        public double Calculate(string expression)
-        {
-            string[] parts = expression.Split(' ');
-            if (parts.Length != 3) throw new ArgumentException("Неверный формат");
+        IOperation operation = _operationFactory.GetOperation(parts[1]);
+        if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
 
-            if (!double.TryParse(parts[0], out double left) || !double.TryParse(parts[2], out double right))
-                throw new ArgumentException("Неверные символы");
-
-            IOperation operation = _operationFactory.GetOperation(parts[1]);
-            if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
-
-            return operation.Calculate(left, right);
-        }
+        return operation.Calculate(left, right);
     }
 
-    public class Program
+    public async Task<double> CalculateAsync(string expression)
     {
-        public static void Main(string[] args)
-        {
-            var factory = new OperationFactory();
-            var calculator = new Calculator(factory);
+        string[] parts = expression.Split(' ');
+        if (parts.Length != 3) throw new ArgumentException("Неверный формат");
 
-            while (true)
+        if (!double.TryParse(parts[0], out double left) || !double.TryParse(parts[2], out double right))
+            throw new ArgumentException("Неверные символы");
+
+        IOperation operation = _operationFactory.GetOperation(parts[1]);
+        if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
+
+        
+        double result1 = await Task.Run(() => operation.Calculate(left, right));
+        double result2 = await Task.Run(() => operation.Calculate(left, right));
+        double result3 = await Task.Run(() => operation.Calculate(left, right));
+
+        return result1 + result2 + result3; 
+    }
+}
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        var factory = new OperationFactory();
+        var calculator = new Calculator(factory);
+
+        while (true)
+        {
+            Console.Write("введите уравнение: ");
+            string input = Console.ReadLine();
+            if (input.ToLower() == "quit") break;
+
+            try
             {
-                Console.Write("введите уравнение: ");
-                string input = Console.ReadLine();
-                if (input.ToLower() == "quit") break;
-
-                try
-                {
-                    double result = calculator.Calculate(input);
-                    Console.WriteLine($"Результат: {result:F3}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка: {ex.Message}");
-                }
+                double result = await calculator.CalculateAsync(input);
+                Console.WriteLine($"Результат: {result:F3}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка: {ex.Message}");
             }
         }
     }
 }
-
