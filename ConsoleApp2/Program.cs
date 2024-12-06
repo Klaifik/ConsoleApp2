@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 public interface IOperation
@@ -94,6 +95,9 @@ public class Calculator
 
     public double Calculate(string expression)
     {
+        DateTime startTime = DateTime.Now;
+        Console.WriteLine($"Начало вычисления: {startTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+
         string[] parts = expression.Split(' ');
         if (parts.Length != 3) throw new ArgumentException("Неверный формат");
 
@@ -103,11 +107,20 @@ public class Calculator
         IOperation operation = _operationFactory.GetOperation(parts[1]);
         if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
 
-        return operation.Calculate(left, right);
+        double result = operation.Calculate(left, right);
+
+        DateTime endTime = DateTime.Now;
+        Console.WriteLine($"Завершение вычисления: {endTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+        Console.WriteLine($"Время выполнения: {endTime - startTime}");
+
+        return result;
     }
 
     public async Task<double> CalculateAsync(string expression)
     {
+        DateTime startTime = DateTime.Now;
+        Console.WriteLine($"Начало вычисления: {startTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+
         string[] parts = expression.Split(' ');
         if (parts.Length != 3) throw new ArgumentException("Неверный формат");
 
@@ -117,12 +130,17 @@ public class Calculator
         IOperation operation = _operationFactory.GetOperation(parts[1]);
         if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
 
-        
         double result1 = await Task.Run(() => operation.Calculate(left, right));
         double result2 = await Task.Run(() => operation.Calculate(left, right));
         double result3 = await Task.Run(() => operation.Calculate(left, right));
 
-        return result1 + result2 + result3; 
+        double finalResult = result1 + result2 + result3;
+
+        DateTime endTime = DateTime.Now;
+        Console.WriteLine($"Завершение вычисления: {endTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+        Console.WriteLine($"Время выполнения: {endTime - startTime}");
+
+        return finalResult;
     }
 }
 
