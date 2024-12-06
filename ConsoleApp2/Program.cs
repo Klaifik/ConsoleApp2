@@ -119,7 +119,7 @@ public class Calculator
     public async Task<double> CalculateAsync(string expression)
     {
         DateTime startTime = DateTime.Now;
-        Console.WriteLine($"Начало вычисления: {startTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+        Console.WriteLine($"Начало асинхронного вычисления: {startTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
 
         string[] parts = expression.Split(' ');
         if (parts.Length != 3) throw new ArgumentException("Неверный формат");
@@ -130,15 +130,43 @@ public class Calculator
         IOperation operation = _operationFactory.GetOperation(parts[1]);
         if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
 
-        double result1 = await Task.Run(() => operation.Calculate(left, right));
-        double result2 = await Task.Run(() => operation.Calculate(left, right));
-        double result3 = await Task.Run(() => operation.Calculate(left, right));
+        // Создаем задачи и измеряем время выполнения каждой из них
+        var task1 = Task.Run(() =>
+        {
+            DateTime taskStartTime = DateTime.Now;
+            double result = operation.Calculate(left, right);
+            DateTime taskEndTime = DateTime.Now;
+            Console.WriteLine($"Завершение 1: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+            Console.WriteLine($"Время выполнения 1: {taskEndTime - taskStartTime}");
+            return result;
+        });
 
-        double finalResult = result1 + result2 + result3;
+        var task2 = Task.Run(() =>
+        {
+            DateTime taskStartTime = DateTime.Now;
+            double result = operation.Calculate(left, right);
+            DateTime taskEndTime = DateTime.Now;
+            Console.WriteLine($"Завершение 2: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+            Console.WriteLine($"Время выполнения 2: {taskEndTime - taskStartTime}");
+            return result;
+        });
+
+        var task3 = Task.Run(() =>
+        {
+            DateTime taskStartTime = DateTime.Now;
+            double result = operation.Calculate(left, right);
+            DateTime taskEndTime = DateTime.Now;
+            Console.WriteLine($"Завершение 3: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+            Console.WriteLine($"Время выполнения 3: {taskEndTime - taskStartTime}");
+            return result;
+        });
+
+        double[] results = await Task.WhenAll(task1, task2, task3);
+        double finalResult = results[0] + results[1] + results[2];
 
         DateTime endTime = DateTime.Now;
         Console.WriteLine($"Завершение вычисления: {endTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
-        Console.WriteLine($"Время выполнения: {endTime - startTime}");
+        Console.WriteLine($"Общее время выполнения: {endTime - startTime}");
 
         return finalResult;
     }
