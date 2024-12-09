@@ -67,6 +67,21 @@ public class LogOperation : BaseOperation
     public override double Calculate(double left, double right) => Math.Log(right, left);
 }
 
+public class TaskFactory
+{
+    public Task<double> CreateTask(IOperation operation, double left, double right)
+    {
+        return Task.Run(() =>
+        {
+            DateTime taskStartTime = DateTime.Now;
+            double result = operation.Calculate(left, right);
+            DateTime taskEndTime = DateTime.Now;
+            Console.WriteLine($"Завершение задачи: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
+            Console.WriteLine($"Время выполнения задачи: {taskEndTime - taskStartTime}");
+            return result;
+        });
+    }
+}
 public class OperationFactory
 {
     private readonly Dictionary<string, Func<IOperation>> _operations = new Dictionary<string, Func<IOperation>>()
@@ -87,12 +102,13 @@ public class OperationFactory
 public class Calculator
 {
     private readonly OperationFactory _operationFactory;
+    private readonly TaskFactory _taskFactory;
 
-    public Calculator(OperationFactory operationFactory)
+    public Calculator(OperationFactory operationFactory, TaskFactory taskFactory)
     {
         _operationFactory = operationFactory;
+        _taskFactory = taskFactory;
     }
-
     public double Calculate(string expression)
     {
         DateTime startTime = DateTime.Now;
@@ -130,10 +146,18 @@ public class Calculator
         IOperation operation = _operationFactory.GetOperation(parts[1]);
         if (operation == null) throw new ArgumentException($"Неизвестная операция {parts[1]}");
 
-        // Создаем задачи и измеряем время выполнения каждой из них
-        var task1 = Task.Run(() =>
+        var tasks = new List<Task<double>>
+        {
+            _taskFactory.CreateTask(operation, left, right),
+            _taskFactory.CreateTask(operation, left, right),
+            _taskFactory.CreateTask(operation, left, right)
+        };
+
+
+        var task1 = Task.Run(async () =>
         {
             DateTime taskStartTime = DateTime.Now;
+            await Task.Delay(0);
             double result = operation.Calculate(left, right);
             DateTime taskEndTime = DateTime.Now;
             Console.WriteLine($"Завершение 1: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
@@ -141,9 +165,10 @@ public class Calculator
             return result;
         });
 
-        var task2 = Task.Run(() =>
+        var task2 = Task.Run(async () =>
         {
             DateTime taskStartTime = DateTime.Now;
+            await Task.Delay(0);
             double result = operation.Calculate(left, right);
             DateTime taskEndTime = DateTime.Now;
             Console.WriteLine($"Завершение 2: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
@@ -151,9 +176,10 @@ public class Calculator
             return result;
         });
 
-        var task3 = Task.Run(() =>
+        var task3 = Task.Run(async () =>
         {
             DateTime taskStartTime = DateTime.Now;
+            await Task.Delay(0);
             double result = operation.Calculate(left, right);
             DateTime taskEndTime = DateTime.Now;
             Console.WriteLine($"Завершение 3: {taskEndTime}, Поток: {Thread.CurrentThread.ManagedThreadId}");
@@ -161,7 +187,8 @@ public class Calculator
             return result;
         });
 
-        double[] results = await Task.WhenAll(task1, task2, task3);
+        double[] results = await Task.WhenAll(tasks);
+
         double finalResult = results[0] + results[1] + results[2];
 
         DateTime endTime = DateTime.Now;
@@ -177,7 +204,8 @@ public class Program
     public static async Task Main(string[] args)
     {
         var factory = new OperationFactory();
-        var calculator = new Calculator(factory);
+        var taskFactory = new TaskFactory();
+        var calculator = new Calculator(factory, taskFactory);
 
         while (true)
         {
